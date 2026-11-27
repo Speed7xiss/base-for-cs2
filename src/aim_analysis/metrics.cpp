@@ -1,0 +1,6 @@
+#include "cs2/metrics.hpp"
+#include <cmath>
+#include <stdexcept>
+namespace cs2 { namespace {float wrap(float d){while(d>180)d-=360;while(d< -180)d+=360;return d;}float err(const AimSample& s){float y=wrap(s.target_yaw-s.view_yaw),p=s.target_pitch-s.view_pitch;return std::sqrt(y*y+p*p);}}
+AimMetrics AimAnalyzer::analyze(const std::vector<AimSample>& s,float threshold){if(threshold<0||!std::isfinite(threshold))throw std::invalid_argument("Invalid threshold");AimMetrics o;o.samples=s.size();if(s.empty())return o;double sum=0,speed=0;std::size_t on=0,sn=0;std::vector<double> es;for(std::size_t i=0;i<s.size();++i){double e=err(s[i]);es.push_back(e);sum+=e;if(e<=threshold)++on;if(i){if(s[i].target_id!=s[i-1].target_id)++o.target_switches;double dt=s[i].time_seconds-s[i-1].time_seconds;if(dt>0){float dy=wrap(s[i].view_yaw-s[i-1].view_yaw),dp=s[i].view_pitch-s[i-1].view_pitch);speed+=std::sqrt(static_cast<double>(dy*dy+dp*dp))/dt;++sn;}}}o.mean_angular_error_degrees=sum/es.size();double var=0;for(double e:es){double x=e-o.mean_angular_error_degrees;var+=x*x;}o.angular_error_stddev_degrees=std::sqrt(var/es.size());o.mean_angular_speed_deg_per_second=sn?speed/sn:0;o.tracking_coverage=static_cast<double>(on)/es.size();return o;}
+}
